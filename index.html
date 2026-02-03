@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>SABOX TV</title>
+
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <style>
@@ -24,12 +26,15 @@ font-size:22px;
 font-weight:600;
 }
 
+/* ===== LAYOUT ===== */
+
 #wrap{
 display:flex;
 height:calc(100vh - 55px);
 }
 
 /* ===== CHANNEL LIST ===== */
+
 #list{
 width:330px;
 background:#111;
@@ -40,7 +45,7 @@ padding:14px;
 .channel{
 background:#1c1c1c;
 padding:16px;
-margin-bottom:20px; /* spacing for easy add */
+margin-bottom:18px;
 border-radius:14px;
 display:flex;
 justify-content:space-between;
@@ -55,6 +60,7 @@ transition:.2s;
 .star.on{color:gold}
 
 /* ===== PLAYER ===== */
+
 #playerWrap{
 flex:1;
 display:flex;
@@ -81,11 +87,12 @@ object-fit:contain;
 background:black;
 }
 
-/* PiP button */
+/* PiP */
+
 #pip{
 position:absolute;
-right:14px;
-bottom:70px;
+right:12px;
+bottom:60px;
 background:#000b;
 color:white;
 border:1px solid #555;
@@ -94,10 +101,48 @@ padding:8px 12px;
 cursor:pointer;
 }
 
+/* ================= MOBILE FIX ================= */
+
 @media(max-width:900px){
-#wrap{flex-direction:column}
-#list{width:100%;height:45%}
-#playerWrap{height:55%}
+
+#wrap{
+flex-direction:column;
+height:100vh;
+}
+
+#list{
+width:100%;
+height:42%;
+padding:10px;
+}
+
+.channel{
+padding:14px;
+margin-bottom:14px;
+font-size:15px;
+}
+
+#playerWrap{
+height:58%;
+padding:6px;
+}
+
+#playerBox{
+border-radius:10px;
+}
+
+#pip{
+bottom:10px;
+right:10px;
+padding:6px 10px;
+font-size:13px;
+}
+
+header{
+font-size:18px;
+padding:10px;
+}
+
 }
 </style>
 </head>
@@ -111,11 +156,10 @@ cursor:pointer;
 <div id="list"></div>
 
 <div id="playerWrap">
- <div id="playerBox">
-  <!-- controls = progress bar -->
-  <video id="video" controls autoplay playsinline></video>
-  <button id="pip">PiP</button>
- </div>
+<div id="playerBox">
+<video id="video" controls autoplay playsinline></video>
+<button id="pip">PiP</button>
+</div>
 </div>
 
 </div>
@@ -123,16 +167,13 @@ cursor:pointer;
 <script>
 
 /* =================================================
-   👉 ADD CHANNELS HERE
-
-   Example:
+   👉 ADD CHANNELS BELOW
 
    {
      name:"Channel Name",
-     url:"YOUR_M3U8_LINK"
+     url:"M3U8_LINK"
    },
 
-   Keep space between channels for clean look
 ================================================= */
 
 const channels=[
@@ -159,9 +200,7 @@ const channels=[
 
 ];
 
-
-
-/* ================= CORE SYSTEM ================= */
+/* ================= CORE ================= */
 
 let hls;
 let fav=JSON.parse(localStorage.getItem("fav")||"[]");
@@ -170,159 +209,137 @@ let userPaused=false;
 const video=document.getElementById("video");
 const list=document.getElementById("list");
 
+/* ===== RENDER ===== */
 
 function render(){
 
- list.innerHTML="";
+list.innerHTML="";
 
- const order=[
-  ...channels.filter(c=>fav.includes(c.name)),
-  ...channels.filter(c=>!fav.includes(c.name))
- ];
+const order=[
+ ...channels.filter(c=>fav.includes(c.name)),
+ ...channels.filter(c=>!fav.includes(c.name))
+];
 
- order.forEach(c=>{
+order.forEach(c=>{
 
-  const div=document.createElement("div");
-  div.className="channel";
+ const div=document.createElement("div");
+ div.className="channel";
 
-  div.innerHTML=`
-   ${c.name}
-   <span class="star ${fav.includes(c.name)?"on":""}">★</span>
-  `;
+ div.innerHTML=`
+ ${c.name}
+ <span class="star ${fav.includes(c.name)?"on":""}">★</span>
+ `;
 
-  div.onclick=()=>play(c.url,div);
+ div.onclick=()=>play(c.url,div);
 
-  div.querySelector(".star").onclick=e=>{
-   e.stopPropagation();
-   toggleFav(c.name);
-  };
+ div.querySelector(".star").onclick=e=>{
+  e.stopPropagation();
+  toggleFav(c.name);
+ };
 
-  list.appendChild(div);
- });
+ list.appendChild(div);
+});
+
 }
-
 
 /* ===== FAVORITE ===== */
+
 function toggleFav(n){
- fav=fav.includes(n)?fav.filter(x=>x!==n):[n,...fav];
- localStorage.setItem("fav",JSON.stringify(fav));
- render();
+fav=fav.includes(n)?fav.filter(x=>x!==n):[n,...fav];
+localStorage.setItem("fav",JSON.stringify(fav));
+render();
 }
 
+/* ===== PLAY ===== */
 
-/* ===== PLAY STREAM ===== */
 function play(url,el){
 
- userPaused=false;
+userPaused=false;
 
- document.querySelectorAll(".channel")
- .forEach(x=>x.classList.remove("active"));
- el.classList.add("active");
+document.querySelectorAll(".channel")
+.forEach(x=>x.classList.remove("active"));
+el.classList.add("active");
 
- if(hls) hls.destroy();
+if(hls) hls.destroy();
 
- if(Hls.isSupported()){
-  hls=new Hls({
-   lowLatencyMode:true,
-   maxBufferLength:15,
-   liveSyncDuration:3
-  });
-  hls.loadSource(url);
-  hls.attachMedia(video);
- }else{
-  video.src=url;
- }
-
- video.play().catch(()=>{});
+if(Hls.isSupported()){
+hls=new Hls({
+ lowLatencyMode:true,
+ maxBufferLength:15,
+ liveSyncDuration:3
+});
+hls.loadSource(url);
+hls.attachMedia(video);
+}else{
+video.src=url;
 }
 
+video.play().catch(()=>{});
+}
 
 /* ===== SMART AUTO RESUME ===== */
 
-video.addEventListener("pause",()=>{
- if(!userPaused){
-  setTimeout(()=>video.play().catch(()=>{}),400);
- }
+["pause","waiting","stalled"].forEach(e=>{
+video.addEventListener(e,()=>{
+ if(!userPaused) setTimeout(()=>video.play().catch(()=>{}),400);
 });
-
-video.addEventListener("waiting",()=>{
- if(!userPaused){
-  setTimeout(()=>video.play().catch(()=>{}),400);
- }
-});
-
-video.addEventListener("stalled",()=>{
- if(!userPaused){
-  setTimeout(()=>video.play().catch(()=>{}),400);
- }
 });
 
 video.addEventListener("leavepictureinpicture",()=>{
  if(!userPaused) video.play();
 });
 
-document.addEventListener("fullscreenchange",()=>{
- if(!userPaused) video.play();
-});
-
-
 /* ===== PiP ===== */
+
 document.getElementById("pip").onclick=async()=>{
- if(document.pictureInPictureElement)
-  document.exitPictureInPicture();
- else
-  await video.requestPictureInPicture();
+if(document.pictureInPictureElement)
+ document.exitPictureInPicture();
+else
+ await video.requestPictureInPicture();
 };
 
+/* ===== SHORTCUT ===== */
 
-/* ===== KEYBOARD SHORTCUT ===== */
 document.addEventListener("keydown",e=>{
 
- switch(e.key.toLowerCase()){
+switch(e.key.toLowerCase()){
 
-  case " ":
-   e.preventDefault();
-   if(video.paused){
-    userPaused=false;
-    video.play();
-   }else{
-    userPaused=true;
-    video.pause();
-   }
-   break;
-
-  case "f":
-   if(!document.fullscreenElement)
-    document.getElementById("playerBox").requestFullscreen();
-   else
-    document.exitFullscreen();
-   break;
-
-  case "m":
-   video.muted=!video.muted;
-   break;
-
-  case "arrowup":
-   video.volume=Math.min(1,video.volume+.05);
-   break;
-
-  case "arrowdown":
-   video.volume=Math.max(0,video.volume-.05);
-   break;
-
-  case "arrowright":
-   video.currentTime+=5;
-   break;
-
-  case "arrowleft":
-   video.currentTime-=5;
-   break;
+ case " ":
+ e.preventDefault();
+ if(video.paused){
+  userPaused=false;
+  video.play();
+ }else{
+  userPaused=true;
+  video.pause();
  }
+ break;
+
+ case "f":
+ if(!document.fullscreenElement)
+  document.getElementById("playerBox").requestFullscreen();
+ else
+  document.exitFullscreen();
+ break;
+
+ case "m":
+ video.muted=!video.muted;
+ break;
+
+ case "arrowup":
+ video.volume=Math.min(1,video.volume+.05);
+ break;
+
+ case "arrowdown":
+ video.volume=Math.max(0,video.volume-.05);
+ break;
+
+}
 
 });
 
+/* ===== AUTO FIRST PLAY ===== */
 
-/* ===== AUTO START FIRST CHANNEL ===== */
 render();
 setTimeout(()=>document.querySelector(".channel")?.click(),500);
 
